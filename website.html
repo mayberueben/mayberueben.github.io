@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passwort-Knacker Simulator 🔓</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { text-align: center; font-size: 2em; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #aaa; margin-bottom: 30px; font-size: 0.95em; }
+        .card {
+            background: #0f3460;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 1.1em; }
+        input[type="password"], input[type="text"] {
+            width: 100%; padding: 14px; border-radius: 10px;
+            border: 2px solid #333; background: #1a1a2e;
+            color: #fff; font-size: 1.2em; letter-spacing: 2px;
+        }
+        input:focus { outline: none; border-color: #e94560; }
+        .methods { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 15px; }
+        .method-btn {
+            padding: 15px; border-radius: 12px; border: 2px solid #333;
+            background: #1a1a2e; color: #fff; cursor: pointer;
+            font-size: 1em; transition: all 0.3s;
+        }
+        .method-btn:hover { border-color: #e94560; transform: translateY(-2px); }
+        .method-btn.active { border-color: #e94560; background: #e94560; }
+        .method-btn .icon { font-size: 1.5em; display: block; margin-bottom: 5px; }
+        .method-btn .name { font-weight: bold; }
+        .method-btn .desc { font-size: 0.8em; color: #aaa; margin-top: 4px; }
+        .method-btn.active .desc { color: #ffd; }
+        .start-btn {
+            width: 100%; padding: 16px; border-radius: 12px; border: none;
+            background: linear-gradient(135deg, #e94560, #c23152);
+            color: #fff; font-size: 1.2em; font-weight: bold;
+            cursor: pointer; margin-top: 20px; transition: all 0.3s;
+        }
+        .start-btn:hover { transform: scale(1.02); box-shadow: 0 5px 20px rgba(233,69,96,0.4); }
+        .start-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .visualization {
+            min-height: 200px; background: #0a0a1a;
+            border-radius: 12px; padding: 20px; margin-top: 20px;
+            font-family: 'Courier New', monospace; font-size: 1em;
+            max-height: 400px; overflow-y: auto;
+        }
+        .attempt-line { margin: 3px 0; opacity: 0; animation: fadeIn 0.1s forwards; }
+        .attempt-line.wrong { color: #e94560; }
+        .attempt-line.correct { color: #4ecca3; font-weight: bold; font-size: 1.2em; }
+        .attempt-line.info { color: #53a8b6; }
+        @keyframes fadeIn { to { opacity: 1; } }
+        .stats {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 10px; margin-top: 15px;
+        }
+        .stat-box {
+            background: #1a1a2e; border-radius: 10px; padding: 12px;
+            text-align: center;
+        }
+        .stat-box .value { font-size: 1.4em; font-weight: bold; color: #e94560; }
+        .stat-box .label { font-size: 0.8em; color: #aaa; margin-top: 4px; }
+        .explanation {
+            background: #16213e; border-left: 4px solid #e94560;
+            padding: 15px; border-radius: 0 10px 10px 0;
+            margin-top: 15px; font-size: 0.9em; line-height: 1.5;
+        }
+        .password-strength { height: 6px; border-radius: 3px; background: #333; margin-top: 10px; overflow: hidden; }
+        .password-strength-bar { height: 100%; transition: width 0.3s, background 0.3s; border-radius: 3px; }
+        .strength-text { font-size: 0.85em; margin-top: 5px; color: #aaa; }
+        .toggle-pass { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; font-size: 1.2em; }
+        .input-wrap { position: relative; }
+        @media (max-width: 600px) { .methods { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔓 Passwort-Knacker Simulator</h1>
+        <p class="subtitle">Lerne, wie Hacker Passwörter knacken – damit du bessere Passwörter wählst!</p>
+
+        <div class="card">
+            <label>🔑 Dein Passwort:</label>
+            <div class="input-wrap">
+                <input type="password" id="password" placeholder="Gib hier ein Passwort ein..." maxlength="20">
+                <span class="toggle-pass" onclick="togglePassword()">👁️</span>
+            </div>
+            <div class="password-strength"><div class="password-strength-bar" id="strengthBar"></div></div>
+            <div class="strength-text" id="strengthText">Noch kein Passwort eingegeben</div>
+        </div>
+
+        <div class="card">
+            <label>⚔️ Methode wählen:</label>
+            <div class="methods">
+                <button class="method-btn" data-method="brute" onclick="selectMethod(this)">
+                    <span class="icon">🔢</span>
+                    <span class="name">Brute Force</span>
+                    <span class="desc">Jede Kombination wird ausprobiert (a, b, c... aa, ab...)</span>
+                </button>
+                <button class="method-btn" data-method="dictionary" onclick="selectMethod(this)">
+                    <span class="icon">📖</span>
+                    <span class="name">Wörterbuch</span>
+                    <span class="desc">Bekannte Wörter und Passwörter werden getestet</span>
+                </button>
+                <button class="method-btn" data-method="pattern" onclick="selectMethod(this)">
+                    <span class="icon">🔍</span>
+                    <span class="name">Muster-Erkennung</span>
+                    <span class="desc">Erkennt Muster wie 1234, qwerty, Namen+Zahl</span>
+                </button>
+                <button class="method-btn" data-method="rainbow" onclick="selectMethod(this)">
+                    <span class="icon">🌈</span>
+                    <span class="name">Rainbow Table</span>
+                    <span class="desc">Fertige Tabelle mit verschlüsselten Passwörtern</span>
+                </button>
+            </div>
+            <button class="start-btn" id="startBtn" onclick="startCracking()" disabled>🚀 Angriff starten</button>
+        </div>
+
+        <div class="card" id="resultCard" style="display:none;">
+            <label>📊 Ergebnis:</label>
+            <div class="visualization" id="viz"></div>
+            <div class="stats">
+                <div class="stat-box"><div class="value" id="statAttempts">0</div><div class="label">Versuche</div></div>
+                <div class="stat-box"><div class="value" id="statTime">0s</div><div class="label">Zeit</div></div>
+                <div class="stat-box"><div class="value" id="statDifficulty">-</div><div class="label">Schwierigkeit</div></div>
+            </div>
+            <div class="explanation" id="explanation"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedMethod = null;
+        let isRunning = false;
+
+        const passwordInput = document.getElementById('password');
+        const startBtn = document.getElementById('startBtn');
+        const viz = document.getElementById('viz');
+
+        const dictionaryWords = ['password','123456','admin','welcome','hello','letmein','monkey','dragon','sunshine','princess','football','iloveyou','master','qwerty','abc123','login','starwars','trustno1','banana','apple','cat','dog','fish','love','test','user','root','secret','michael','jennifer','jordan','superman','batman','pokemon','minecraft','samsung','google','internet','computer','shadow','soccer','baseball','ninja','hunter'];
+
+        passwordInput.addEventListener('input', updateStrength);
+
+        function togglePassword() {
+            const inp = document.getElementById('password');
+            inp.type = inp.type === 'password' ? 'text' : 'password';
+        }
+
+        function updateStrength() {
+            const pass = passwordInput.value;
+            let score = 0;
+            if (pass.length >= 6) score++;
+            if (pass.length >= 10) score++;
+            if (pass.length >= 14) score++;
+            if (/[A-Z]/.test(pass)) score++;
+            if (/[0-9]/.test(pass)) score++;
+            if (/[^A-Za-z0-9]/.test(pass)) score++;
+
+            const bar = document.getElementById('strengthBar');
+            const text = document.getElementById('strengthText');
+            const pct = Math.min((score / 6) * 100, 100);
+            bar.style.width = pct + '%';
+
+            if (score <= 1) { bar.style.background = '#e94560'; text.textContent = '⚠️ Sehr schwach – leicht zu knacken!'; }
+            else if (score <= 3) { bar.style.background = '#f5a623'; text.textContent = '🟡 Mittelmäßig – verbesserbar'; }
+            else if (score <= 4) { bar.style.background = '#7ed321'; text.textContent = '🟢 Gut – schon sicherer'; }
+            else { bar.style.background = '#4ecca3'; text.textContent = '💪 Stark – schwer zu knacken!'; }
+
+            startBtn.disabled = !pass || !selectedMethod;
+        }
+
+        function selectMethod(btn) {
+            document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedMethod = btn.dataset.method;
+            startBtn.disabled = !passwordInput.value;
+        }
+
+        function addLine(text, cls) {
+            const line = document.createElement('div');
+            line.className = 'attempt-line ' + (cls || '');
+            line.textContent = text;
+            viz.appendChild(line);
+            viz.scrollTop = viz.scrollHeight;
+        }
+
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+        async function startCracking() {
+            if (isRunning) return;
+            isRunning = true;
+            const pass = passwordInput.value;
+            viz.innerHTML = '';
+            document.getElementById('resultCard').style.display = 'block';
+            startBtn.disabled = true;
+
+            let attempts = 0;
+            let cracked = false;
+
+            addLine('🎯 Ziel-Passwort: ' + '*'.repeat(pass.length), 'info');
+            addLine('⚔️ Methode: ' + getMethodName(selectedMethod), 'info');
+            addLine('─────────────────────────────────', 'info');
+            await sleep(500);
+
+            if (selectedMethod === 'brute') {
+                attempts = await simulateBruteForce(pass);
+            } else if (selectedMethod === 'dictionary') {
+                attempts = await simulateDictionary(pass);
+            } else if (selectedMethod === 'pattern') {
+                attempts = await simulatePattern(pass);
+            } else if (selectedMethod === 'rainbow') {
+                attempts = await simulateRainbow(pass);
+            }
+
+            document.getElementById('statAttempts').textContent = attempts.toLocaleString('de');
+            const time = (attempts * 0.05).toFixed(1);
+            document.getElementById('statTime').textContent = time + 's';
+
+            let diff = 'Schwer';
+            if (attempts < 50) diff = 'Sehr leicht';
+            else if (attempts < 500) diff = 'Leicht';
+            else if (attempts < 5000) diff = 'Mittel';
+            else if (attempts > 100000) diff = 'Sehr schwer';
+            document.getElementById('statDifficulty').textContent = diff;
+
+            document.getElementById('explanation').innerHTML = getExplanation(selectedMethod, attempts, pass);
+            isRunning = false;
+            startBtn.disabled = false;
+        }
+
+        async function simulateBruteForce(pass) {
+            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789!@#$%';
+            let attempts = 0;
+            const maxDisplay = 30;
+            let displayCount = 0;
+
+            addLine('🔢 Alle Kombinationen werden durchprobiert...', 'info');
+            await sleep(300);
+
+            // Generate attempts that eventually match
+            const totalAttempts = Math.min(pass.length * 50 + 10, 10000);
+
+            for (let i = 0; i < totalAttempts; i++) {
+                attempts++;
+                if (displayCount < maxDisplay) {
+                    let guess = generateRandomGuess(pass.length, chars);
+                    addLine(`  Versuch ${attempts}: ${guess} ✗`, 'wrong');
+                    displayCount++;
+                    await sleep(50);
+                } else if (displayCount === maxDisplay) {
+                    addLine(`  ... ${totalAttempts - maxDisplay} weitere Versuche ...`, 'info');
+                    displayCount++;
+                    await sleep(200);
+                }
+            }
+
+            addLine(`  Versuch ${attempts}: ${pass} ✓`, 'correct');
+            addLine('🎉 PASSWORT GEFUNDEN!', 'correct');
+            return attempts;
+        }
+
+        async function simulateDictionary(pass) {
+            let attempts = 0;
+            const words = [...dictionaryWords];
+
+            // Add variations
+            const passLower = pass.toLowerCase();
+            const inDict = words.includes(passLower);
+
+            if (!inDict) {
+                // Add common variations
+                words.push(passLower, passLower + '1', passLower + '123', passLower + '!', pass.charAt(0).toUpperCase() + pass.slice(1));
+            }
+
+            addLine('📖 Wörterbuch wird durchsucht...', 'info');
+            await sleep(300);
+
+            const shuffled = words.sort(() => Math.random() - 0.5);
+            const targetIdx = shuffled.indexOf(passLower) !== -1 ? shuffled.indexOf(passLower) : shuffled.length - 1;
+
+            for (let i = 0; i <= targetIdx; i++) {
+                attempts++;
+                if (i < 20 || i === targetIdx) {
+                    const isMatch = i === targetIdx;
+                    addLine(`  Versuch ${attempts}: ${shuffled[i]} ${isMatch ? '✓' : '✗'}`, isMatch ? 'correct' : 'wrong');
+                    await sleep(isMatch ? 100 : 80);
+                } else if (i === 20) {
+                    addLine(`  ... ${targetIdx - 20} weitere Wörter ...`, 'info');
+                    await sleep(300);
+                }
+            }
+
+            addLine('🎉 PASSWORT GEFUNDEN!', 'correct');
+            return attempts;
+        }
+
+        async function simulatePattern(pass) {
+            let attempts = 0;
+            const patterns = [
+                { name: 'Zahlenfolge', test: p => /\d{4,}/.test(p) || /^(123|234|345|456|567|678|789|012)/.test(p) },
+                { name: 'Tastaturmuster', test: p => /qwerty|asdf|zxcv|qazwsx/i.test(p) },
+                { name: 'Namen+Zahl', test: p => /^[a-zA-Z]+\d{1,4}$/.test(p) },
+                { name: 'Wiederholung', test: p => /^(.)\1+|^(..)\2+/.test(p) },
+                { name: 'Jahreszahl', test: p => /(19|20)\d{2}/.test(p) },
+                { name: 'Kurz (≤4 Zeichen)', test: p => p.length <= 4 },
+                { name: 'Nur Kleinbuchstaben', test: p => /^[a-z]+$/.test(p) },
+                { name: 'Gross+Klein+Zahl', test: p => /[A-Z]/.test(p) && /[a-z]/.test(p) && /[0-9]/.test(p) },
+            ];
+
+            addLine('🔍 Muster werden analysiert...', 'info');
+            await sleep(300);
+
+            for (const pat of patterns) {
+                attempts++;
+                const matched = pat.test(pass);
+                const icon = matched ? '⚡ GEFUNDEN!' : '✗';
+                addLine(`  Muster "${pat.name}": ${icon}`, matched ? 'correct' : 'wrong');
+                await sleep(400);
+                if (matched) break;
+            }
+
+            if (attempts >= patterns.length) {
+                addLine('  Dieses Passwort hat kein einfaches Muster! 💪', 'info');
+                addLine('→ Brute Force wäre nötig – das dauert sehr lange!', 'correct');
+                return 999999;
+            }
+
+            return attempts;
+        }
+
+        async function simulateRainbow(pass) {
+            let attempts = 0;
+            const hash = simpleHash(pass);
+
+            addLine('🌈 Rainbow Table wird durchsucht...', 'info');
+            addLine(`  Hash des Passworts: ${hash}`, 'info');
+            await sleep(500);
+
+            const tableSize = Math.min(pass.length * 100, 5000);
+
+            for (let i = 0; i < 10; i++) {
+                attempts += Math.floor(tableSize / 10);
+                addLine(`  Tabelle ${i + 1}: ${attempts.toLocaleString('de')} Einträge geprüft... ${i === 9 ? '✓ TREFFER!' : '✗'}`, i === 9 ? 'correct' : 'wrong');
+                await sleep(200);
+            }
+
+            if (pass.length <= 6) {
+                addLine('🎉 GEFUNDEN! Kurze Passwörter sind in Rainbow Tables!', 'correct');
+            } else {
+                addLine('⚠️ Passwort zu lang für Rainbow Tables (>6 Zeichen)', 'info');
+                addLine('→ Rainbow Tables funktionieren nur für kurze Passwörter', 'info');
+                return tableSize;
+            }
+            return attempts;
+        }
+
+        function simpleHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return Math.abs(hash).toString(16).padStart(8, '0').slice(0, 12);
+        }
+
+        function generateRandomGuess(len, chars) {
+            let result = '';
+            for (let i = 0; i < len; i++) {
+                result += chars[Math.floor(Math.random() * chars.length)];
+            }
+            return result;
+        }
+
+        function getMethodName(m) {
+            return { brute: '🔢 Brute Force', dictionary: '📖 Wörterbuch', pattern: '🔍 Muster-Erkennung', rainbow: '🌈 Rainbow Table' }[m];
+        }
+
+        function getExplanation(method, attempts, pass) {
+            const explanations = {
+                brute: `<b>🔢 Brute Force:</b> Der Hacker probiert jede mögliche Kombination durch. Bei kurzen Passwörtern (4 Zeichen) gibt es ~1.7 Mio. Kombinationen – das dauert nur Sekunden! Bei 12+ Zeichen mit Sonderzeichen sind es Billionen – das würde Millionen Jahre dauern.<br><br>💡 <b>Tipp:</b> Je länger dein Passwort, desto länger dauert Brute Force.`,
+                dictionary: `<b>📖 Wörterbuch:</b> 90% der Passwörter sind bekannte Wörter oder Kombinationen. Hacker haben Listen mit Millionen der häufigsten Passwörter. Wenn dein Passwort ein echtes Wort ist, wird es in Sekunden gefunden.<br><br>💡 <b>Tipp:</b> Benutze keine echten Wörter als Passwort!`,
+                pattern: `<b>🔍 Muster-Erkennung:</b> Viele Menschen nutzen Vorhersagbares: "1234", "qwerty", "Name+Geburtsjahr". Diese Muster werden zuerst getestet und sind extrem schnell zu knacken.<br><br>💡 <b>Tipp:</b> Vermeide vorhersehbare Muster – nutze zufällige Kombinationen!`,
+                rainbow: `<b>🌈 Rainbow Table:</b> Hacker speichern Millionen von Passwort-Hashes in Tabellen. Statt zu rechnen, schlagen sie einfach nach. Funktioniert aber nur bei kurzen Passwörtern (≤6 Zeichen).<br><br>💡 <b>Tipp:</b> Längere Passwörter (8+) machen Rainbow Tables nutzlos!`
+            };
+            return explanations[method] || '';
+        }
+    </script>
+</body>
+</html>
